@@ -1,0 +1,4998 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyVibe - Reprodutor de Música Local</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --primary-dark: #0f0f0f;
+            --secondary-dark: #1a1a1a;
+            --tertiary-dark: #2d2d2d;
+            --accent-purple: #7c3aed;
+            --accent-green: #10b981;
+            --neon-green: #00ff88;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --border-color: #404040;
+            --transition-speed: 0.3s;
+        }
+
+        /* ✅ SISTEMA DE NOTIFICAÇÕES */
+        .notifications-container {
+            position: fixed;
+            top: 100px;
+            right: 30px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 400px;
+            pointer-events: none;
+        }
+
+        .notification {
+            background: var(--secondary-dark);
+            border: 2px solid var(--accent-purple);
+            border-radius: 12px;
+            padding: 16px 20px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+            animation: slideInNotification 0.3s ease-out;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        .notification.success {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .notification.error {
+            border-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        .notification.warning {
+            border-color: #ffa500;
+            background: rgba(255, 165, 0, 0.1);
+        }
+
+        .notification.info {
+            border-color: var(--accent-purple);
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .notification-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .notification.success .notification-icon {
+            color: var(--accent-green);
+        }
+
+        .notification.error .notification-icon {
+            color: #ff6b6b;
+        }
+
+        .notification.warning .notification-icon {
+            color: #ffa500;
+        }
+
+        .notification.info .notification-icon {
+            color: var(--accent-purple);
+        }
+
+        .notification-content {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 16px;
+            flex-shrink: 0;
+            transition: all 0.3s;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification-close:hover {
+            color: var(--text-primary);
+            transform: rotate(90deg);
+        }
+
+        .notification-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: var(--accent-purple);
+            border-radius: 0 0 10px 0;
+            animation: slideOutNotification 4s linear forwards;
+        }
+
+        .notification.success .notification-progress {
+            background: var(--accent-green);
+        }
+
+        .notification.error .notification-progress {
+            background: #ff6b6b;
+        }
+
+        .notification.warning .notification-progress {
+            background: #ffa500;
+        }
+
+        @keyframes slideInNotification {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutNotification {
+            from {
+                width: 100%;
+            }
+            to {
+                width: 0%;
+            }
+        }
+
+        @keyframes fadeOutNotification {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .notification.fade-out {
+            animation: fadeOutNotification 0.3s ease-out forwards;
+        }
+
+        @media (max-width: 768px) {
+            .notifications-container {
+                top: 140px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+
+            .notification {
+                padding: 14px 16px;
+                font-size: 13px;
+            }
+        }
+
+        /* Canvas Container - CRÍTICO PARA PARTICLES */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: transparent;
+            pointer-events: none;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: var(--primary-dark);
+            font-family: 'Poppins', 'Inter', sans-serif;
+            color: var(--text-primary);
+        }
+
+        body {
+            display: flex;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        body.fullscreen {
+            overflow: hidden;
+        }
+
+        /* Vídeo de Fundo */
+        #video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            object-fit: cover;
+            opacity: 0.7;
+        }
+
+        /* Fundo 3D com Canvas (Partículas por cima do vídeo) */
+        canvas {
+            display: block;
+        }
+
+        /* Container Principal */
+        .app-container {
+            display: flex;
+            width: 100%;
+            min-height: 100vh;
+            position: relative;
+            z-index: 2;
+        }
+
+        body.fullscreen .app-container {
+            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* MODAL DE LOGIN E CADASTRO */
+        .auth-overlay {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.4s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .auth-overlay.hidden {
+            display: none;
+        }
+
+        .auth-container {
+            background: linear-gradient(135deg, var(--secondary-dark), var(--tertiary-dark));
+            border: 2px solid var(--accent-purple);
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 0 40px rgba(124, 58, 237, 0.6), inset 0 0 20px rgba(124, 58, 237, 0.1);
+            animation: slideUpScale 0.5s ease;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes slideUpScale {
+            from {
+                transform: translateY(30px) scale(0.95);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .auth-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--accent-purple);
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .auth-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .auth-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .auth-input-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .auth-input {
+            padding: 12px 16px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .auth-select {
+            padding: 12px 16px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3b3b3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 18px;
+            padding-right: 40px;
+        }
+
+        .auth-select option {
+            background: var(--tertiary-dark);
+            color: var(--text-primary);
+        }
+
+        .auth-select:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+            background-color: rgba(124, 58, 237, 0.1);
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237c3aed' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        }
+
+        .auth-select:hover {
+            border-color: var(--accent-green);
+        }
+
+        .auth-button {
+            padding: 14px 20px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-green));
+            border: none;
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 12px;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+        }
+
+        .auth-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(124, 58, 237, 0.5);
+        }
+
+        .auth-button:active {
+            transform: translateY(0);
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .auth-toggle button {
+            background: none;
+            border: none;
+            color: var(--accent-green);
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: underline;
+            transition: color 0.3s ease;
+            font-size: 13px;
+        }
+
+        .auth-toggle button:hover {
+            color: var(--neon-green);
+        }
+
+        .auth-error {
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            border-radius: 6px;
+            color: #ff8888;
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 12px;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        .auth-error.show {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .user-info-header {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(124, 58, 237, 0.1);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            position: absolute;
+            top: 100px;
+            left: 16px;
+            right: 16px;
+            width: auto;
+            z-index: 10;
+        }
+
+        .user-info-header.active {
+            display: flex;
+        }
+
+        .user-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-green));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .logout-btn {
+            padding: 8px 12px;
+            background: transparent;
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: var(--accent-green);
+            color: var(--primary-dark);
+        }
+
+        /* Barra Lateral */
+        .sidebar {
+            width: 280px;
+            background: var(--secondary-dark);
+            border-right: 1px solid var(--border-color);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: inset -1px 0 0 var(--border-color);
+            animation: slideInLeft 0.5s ease-out;
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.hidden {
+            display: none !important;
+            width: 0 !important;
+            padding: 0 !important;
+            border-right: none !important;
+            margin: 0 !important;
+            visibility: hidden !important;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Botão Toggle Sidebar */
+        .toggle-sidebar-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background: var(--accent-purple);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+        }
+
+        .toggle-sidebar-btn:hover {
+            background: var(--accent-green);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+        }
+
+        .toggle-sidebar-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Botão Fullscreen */
+        .fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: var(--accent-purple);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+        }
+
+        .fullscreen-btn:hover {
+            background: var(--neon-green);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 255, 136, 0.5);
+        }
+
+        .fullscreen-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Botão para Video Flutuante */
+        .floating-video-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: var(--accent-green);
+            border: none;
+            border-radius: 50%;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
+        }
+
+        .floating-video-btn:hover {
+            background: var(--neon-green);
+            transform: scale(1.15);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.7);
+        }
+
+        .floating-video-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* Botão Settings (Engrenagem) */
+        .floating-settings-btn {
+            position: fixed;
+            bottom: 95px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: var(--accent-green);
+            border: none;
+            border-radius: 50%;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
+        }
+
+        .floating-settings-btn:hover {
+            background: var(--neon-green);
+            transform: scale(1.15) rotate(90deg);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.7);
+        }
+
+        .floating-settings-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* ✅ BOTÃO ZOOM - AZUL MARINHO */
+        .floating-zoom-btn {
+            position: fixed;
+            bottom: 160px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: #003366;
+            border: none;
+            border-radius: 50%;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 4px 16px rgba(0, 51, 102, 0.6);
+        }
+
+        .floating-zoom-btn:hover {
+            background: #004d99;
+            transform: scale(1.15);
+            box-shadow: 0 6px 20px rgba(0, 100, 150, 0.8);
+        }
+
+        .floating-zoom-btn:active {
+            transform: scale(0.9);
+        }
+
+        body.fullscreen .toggle-sidebar-btn,
+        body.fullscreen .floating-video-btn,
+        body.fullscreen .floating-settings-btn,
+        body.fullscreen .floating-zoom-btn {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* ✅ MODAL DE ZOOM */
+        .zoom-modal {
+            display: none;
+            position: fixed;
+            bottom: 220px;
+            right: 30px;
+            width: 280px;
+            background: var(--secondary-dark);
+            border: 2px solid #003366;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            z-index: 60;
+            animation: slideUpFloat 0.3s ease;
+        }
+
+        .zoom-modal.active {
+            display: block;
+        }
+
+        .zoom-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #003366;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform var(--transition-speed);
+        }
+
+        .zoom-modal-close:hover {
+            transform: rotate(90deg);
+        }
+
+        .zoom-modal h3 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #003366;
+            margin-top: 5px;
+        }
+
+        .zoom-slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .zoom-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--tertiary-dark);
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        .zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 51, 102, 0.6);
+        }
+
+        .zoom-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #003366;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 8px rgba(0, 51, 102, 0.6);
+        }
+
+        .zoom-value {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .zoom-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .zoom-btn-small {
+            flex: 1;
+            padding: 8px;
+            background: rgba(0, 51, 102, 0.2);
+            border: 1px solid #003366;
+            color: #003366;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all var(--transition-speed);
+        }
+
+        .zoom-btn-small:hover {
+            background: #003366;
+            color: white;
+        }
+
+        .zoom-btn-reset {
+            width: 100%;
+            padding: 8px;
+            background: transparent;
+            border: 1px solid var(--text-secondary);
+            color: var(--text-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all var(--transition-speed);
+            margin-top: 8px;
+        }
+
+        .zoom-btn-reset:hover {
+            background: var(--text-secondary);
+            color: var(--primary-dark);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 32px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--neon-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .playlists-section {
+            flex: 1;
+        }
+
+        .playlists-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+        }
+
+        .playlist-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .playlist-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            background: transparent;
+            border: 1px solid transparent;
+            font-size: 14px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .playlist-item:hover {
+            background: var(--tertiary-dark);
+            color: var(--text-primary);
+            transform: translateX(4px);
+        }
+
+        .playlist-item.active {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple));
+            color: var(--text-primary);
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 12px rgba(7, 255, 136, 0.3);
+        }
+
+        .delete-playlist {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity var(--transition-speed);
+            padding: 4px 8px;
+        }
+
+        .playlist-item:hover .delete-playlist {
+            opacity: 1;
+        }
+
+        .add-playlist-btn {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: var(--accent-purple);
+            border: 1px solid var(--accent-purple);
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all var(--transition-speed) ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .add-playlist-btn:hover {
+            background: transparent;
+            box-shadow: 0 0 16px rgba(124, 58, 237, 0.5);
+            transform: scale(1.02);
+        }
+
+        /* Área Principal */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+            min-height: 100vh;
+            transition: padding 0.3s ease;
+        }
+
+        body.fullscreen .main-content {
+            padding: 0;
+            min-height: 100vh;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Player Central */
+        .player {
+            background: rgba(26, 26, 26, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 48px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: fadeInUp 0.6s ease-out;
+            position: relative;
+            z-index: 3;
+            transition: all 0.3s ease;
+        }
+
+        body.fullscreen .player {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            backdrop-filter: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            max-width: 100%;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .album-art {
+            width: 240px;
+            height: 240px;
+            border-radius: 16px;
+            margin: 0 auto 32px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-green));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            color: rgba(255, 255, 255, 0.3);
+            position: relative;
+            box-shadow: 0 0 40px rgba(124, 58, 237, 0.3);
+            overflow: hidden;
+            animation: spin 20s linear infinite;
+            transition: all 0.3s ease;
+            transform-origin: center center;
+            cursor: pointer;
+        }
+
+        body.fullscreen .album-art {
+            width: 300px;
+            height: 300px;
+            font-size: 120px;
+            box-shadow: 0 0 60px rgba(124, 58, 237, 0.5);
+            margin-bottom: 60px;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .album-art.paused {
+            animation-play-state: paused;
+        }
+
+        .album-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ✅ NOVO: UPLOAD DIRETO CLICANDO NO ALBUM-ART */
+        .album-art-upload-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 16px;
+            backdrop-filter: blur(5px);
+        }
+
+        .album-art:hover .album-art-upload-overlay {
+            opacity: 1;
+        }
+
+        .album-upload-text {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .album-upload-text i {
+            font-size: 28px;
+            color: var(--accent-green);
+        }
+
+        #albumImageInput,
+        #albumArtistInput {
+            display: none;
+        }
+
+        .song-info {
+            margin-bottom: 32px;
+            min-height: 80px;
+            transition: all 0.3s ease;
+        }
+
+        body.fullscreen .song-info {
+            margin-bottom: 80px;
+            min-height: auto;
+        }
+
+        .song-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            animation: fadeIn 0.5s ease;
+            transition: font-size 0.3s ease;
+        }
+
+        body.fullscreen .song-title {
+            font-size: 32px;
+        }
+
+        .song-artist {
+            font-size: 14px;
+            color: var(--text-secondary);
+            animation: fadeIn 0.5s ease 0.1s both;
+            transition: font-size 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .song-artist:hover::after {
+            content: ' ✎';
+            color: var(--accent-green);
+        }
+
+        body.fullscreen .song-artist {
+            display: none;
+        }
+
+        /* ✅ MODAL DE EDIÇÃO DE ARTISTA */
+        .artist-edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .artist-edit-modal.active {
+            display: flex;
+        }
+
+        .artist-edit-content {
+            background: var(--secondary-dark);
+            border: 2px solid var(--accent-purple);
+            border-radius: 16px;
+            padding: 32px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 0 40px rgba(124, 58, 237, 0.6);
+            animation: slideUp 0.3s ease;
+            position: relative;
+        }
+
+        .artist-edit-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--accent-purple);
+        }
+
+        .artist-edit-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 20px;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .artist-edit-input:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+        }
+
+        .artist-edit-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .artist-edit-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            color: var(--text-primary);
+        }
+
+        .artist-edit-btn:hover {
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+        }
+
+        .artist-edit-btn.confirm {
+            background: var(--accent-purple);
+            border: none;
+            color: var(--text-primary);
+        }
+
+        .artist-edit-btn.confirm:hover {
+            box-shadow: 0 0 16px rgba(124, 58, 237, 0.5);
+        }
+
+        /* Controles de Reprodução */
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            margin-bottom: 32px;
+            transition: all 0.3s ease;
+        }
+
+        body.fullscreen .controls {
+            gap: 80px;
+            margin-bottom: 0;
+            margin-top: auto;
+        }
+
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-purple);
+            background: transparent;
+            color: var(--accent-purple);
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-speed) ease;
+            position: relative;
+        }
+
+        body.fullscreen .control-btn:not(.play-btn) {
+            width: 70px;
+            height: 70px;
+            font-size: 28px;
+            border: 2px solid var(--accent-green);
+            background: transparent;
+            color: var(--accent-green);
+        }
+
+        body.fullscreen .control-btn:not(.play-btn):hover {
+            background: var(--accent-green);
+            color: var(--text-primary);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+            transform: scale(1.1);
+        }
+
+        .control-btn:hover {
+            background: var(--accent-purple);
+            color: var(--text-primary);
+            box-shadow: 0 0 16px rgba(124, 58, 237, 0.5);
+            transform: scale(1.1);
+        }
+
+        .control-btn.play-btn {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-green));
+            border: none;
+            font-size: 24px;
+            color: var(--text-primary);
+            box-shadow: 0 0 24px rgba(124, 58, 237, 0.4);
+        }
+
+        body.fullscreen .control-btn.play-btn {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--accent-green), #059669);
+            border: none;
+            font-size: 40px;
+            color: var(--text-primary);
+            box-shadow: 0 0 50px rgba(16, 185, 129, 0.8);
+        }
+
+        .control-btn.play-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 32px rgba(124, 58, 237, 0.6);
+        }
+
+        body.fullscreen .control-btn.play-btn:hover {
+            box-shadow: 0 0 70px rgba(16, 185, 129, 1);
+        }
+
+        /* Barra de Progresso */
+        .progress-container {
+            margin-bottom: 24px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        body.fullscreen .progress-container {
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--tertiary-dark);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        body.fullscreen .progress-bar {
+            height: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-green));
+            border-radius: 3px;
+            width: 0%;
+            position: relative;
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.6);
+            transition: width 0.1s linear;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -4px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--neon-green);
+        }
+
+        body.fullscreen .progress-fill::after {
+            width: 16px;
+            height: 16px;
+            right: -6px;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: font-size 0.3s ease;
+        }
+
+        body.fullscreen .time-display {
+            font-size: 14px;
+        }
+
+        /* Botão Adicionar Músicas */
+        .add-music-btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-green));
+            border: none;
+            border-radius: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all var(--transition-speed) ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+            margin-top: 24px;
+        }
+
+        body.fullscreen .add-music-btn {
+            display: none;
+        }
+
+        .add-music-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+        }
+
+        .add-music-btn:active {
+            transform: translateY(0);
+        }
+
+        #fileInput,
+        #albumImageInput,
+        #albumArtistInput {
+            display: none;
+        }
+
+        /* Lista de Músicas */
+        .playlist-content {
+            margin-top: 24px;
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border-color);
+            padding-top: 24px;
+        }
+
+        body.fullscreen .playlist-content {
+            display: none;
+        }
+
+        .music-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            background: var(--tertiary-dark);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            border: 1px solid transparent;
+            user-select: none;
+        }
+
+        .music-item:hover {
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid var(--accent-purple);
+            transform: translateX(4px);
+        }
+
+        .music-item.active {
+            background: var(--accent-purple);
+            border: 1px solid var(--neon-green);
+            box-shadow: inset 0 0 12px rgba(7, 255, 136, 0.2);
+        }
+
+        .music-item-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .music-item-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .music-item-duration {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .remove-music-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            transition: color var(--transition-speed);
+            margin-left: 12px;
+            padding: 4px 8px;
+        }
+
+        .remove-music-btn:hover {
+            color: #ff4444;
+        }
+
+        /* Modal para Nova Playlist */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--secondary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 24px;
+            transition: all var(--transition-speed);
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all var(--transition-speed);
+            font-family: 'Poppins', sans-serif;
+            color: var(--text-primary);
+        }
+
+        .modal-btn:hover {
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+        }
+
+        .modal-btn.confirm {
+            background: var(--accent-purple);
+            border: none;
+            color: var(--text-primary);
+        }
+
+        .modal-btn.confirm:hover {
+            box-shadow: 0 0 16px rgba(124, 58, 237, 0.5);
+        }
+
+        /* Modal de Aviso */
+        .warning-modal {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.4s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .warning-modal.hidden {
+            display: none;
+        }
+
+        .warning-content {
+            background: linear-gradient(135deg, var(--secondary-dark), var(--tertiary-dark));
+            border: 2px solid var(--accent-purple);
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(124, 58, 237, 0.6), inset 0 0 20px rgba(124, 58, 237, 0.1);
+            animation: slideUpScale 0.5s ease;
+            position: relative;
+        }
+
+        .warning-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--neon-green);
+            cursor: pointer;
+            font-size: 28px;
+            transition: all var(--transition-speed);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .warning-close:hover {
+            background: rgba(124, 58, 237, 0.2);
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        .warning-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: var(--accent-purple);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .warning-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .warning-text {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .warning-creator {
+            font-size: 14px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .warning-creator-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-top: 8px;
+        }
+
+        /* Modal para Video Flutuante */
+        .video-modal {
+            display: none;
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 280px;
+            background: var(--secondary-dark);
+            border: 2px solid var(--accent-green);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            z-index: 60;
+            animation: slideUpFloat 0.3s ease;
+        }
+
+        .video-modal.active {
+            display: block;
+        }
+
+        @keyframes slideUpFloat {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .video-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--accent-green);
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform var(--transition-speed);
+        }
+
+        .video-modal-close:hover {
+            transform: rotate(90deg);
+        }
+
+        .video-modal h3 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: var(--accent-green);
+            margin-top: 5px;
+        }
+
+        .video-input-btn {
+            padding: 10px 16px;
+            background: var(--accent-green);
+            border: none;
+            border-radius: 8px;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all var(--transition-speed);
+            width: 100%;
+        }
+
+        .video-input-btn:hover {
+            background: var(--neon-green);
+            transform: scale(1.05);
+        }
+
+        #videoFileInput {
+            display: none;
+        }
+
+        .video-status {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 12px;
+        }
+
+        /* Modal Settings - ANTIGO (SERÁ SUBSTITUÍDO) */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            bottom: 195px;
+            right: 30px;
+            width: 280px;
+            background: var(--secondary-dark);
+            border: 2px solid var(--accent-green);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            z-index: 60;
+            animation: slideUpFloat 0.3s ease;
+        }
+
+        .settings-modal.active {
+            display: block;
+        }
+
+        .settings-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--accent-green);
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform var(--transition-speed);
+        }
+
+        .settings-modal-close:hover {
+            transform: rotate(90deg);
+        }
+
+        .settings-modal h3 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: var(--accent-green);
+            margin-top: 5px;
+        }
+
+        .settings-item {
+            padding: 12px;
+            background: rgba(124, 58, 237, 0.1);
+            border: 1px solid var(--accent-purple);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-item label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .toggle-switch {
+            width: 40px;
+            height: 22px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--accent-green);
+            border-radius: 11px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: var(--accent-green);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.3s ease;
+        }
+
+        .toggle-switch.active::after {
+            left: 20px;
+        }
+
+        /* MODAL DE ASSINATURAS */
+        .floating-cart-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 95px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--accent-green) 0%, #059669 100%);
+            border: none;
+            border-radius: 50%;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
+            animation: pulse-cart 2s infinite;
+        }
+
+        .floating-cart-btn:hover {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            transform: scale(1.15);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.8);
+        }
+
+        .floating-cart-btn:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes pulse-cart {
+            0%, 100% {
+                box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
+            }
+            50% {
+                box-shadow: 0 4px 25px rgba(16, 185, 129, 0.9);
+            }
+        }
+
+        /* Modal Background */
+        .subscriptions-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .subscriptions-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .subscriptions-modal-content {
+            background: var(--secondary-dark);
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 1100px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease;
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+
+        .subscriptions-modal-header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .subscriptions-modal-header h2 {
+            font-size: 2.5em;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .subscriptions-modal-header p {
+            color: var(--text-secondary);
+            font-size: 1.1em;
+        }
+
+        .close-subscriptions-btn {
+            position: absolute;
+            right: 30px;
+            top: 30px;
+            font-size: 2em;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-subscriptions-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .plan-card {
+            background: var(--tertiary-dark);
+            border: 2px solid var(--border-color);
+            border-radius: 15px;
+            padding: 30px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            border-color: var(--accent-green);
+        }
+
+        .plan-card.featured {
+            border: 2px solid var(--accent-green);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+            transform: scale(1.05);
+        }
+
+        .plan-card.featured::before {
+            content: 'MAIS POPULAR';
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-45deg);
+            background: var(--accent-green);
+            color: var(--primary-dark);
+            padding: 5px 40px;
+            font-size: 0.8em;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .plan-name {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            margin-top: 10px;
+        }
+
+        .plan-price {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-bottom: 10px;
+        }
+
+        .plan-price-period {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .plan-benefits {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+
+        .plan-benefits li {
+            padding: 12px 0;
+            color: var(--text-secondary);
+            font-size: 0.95em;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .plan-benefits li::before {
+            content: '✓';
+            color: var(--accent-green);
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 1.2em;
+        }
+
+        .plan-benefits li:last-child {
+            border-bottom: none;
+        }
+
+        .plan-button {
+            width: 100%;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .plan-button.basic {
+            background: var(--tertiary-dark);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .plan-button.basic:hover {
+            background: var(--border-color);
+        }
+
+        .plan-button.gold,
+        .plan-button.diamond {
+            background: linear-gradient(135deg, var(--accent-green) 0%, #059669 100%);
+            color: var(--primary-dark);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .plan-button.gold:hover,
+        .plan-button.diamond:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(16, 185, 129, 0.5);
+        }
+
+        .plan-button.gold:active,
+        .plan-button.diamond:active {
+            transform: translateY(0);
+        }
+
+        /* ✅ SEÇÃO DE CÓDIGO PROMOCIONAL - CSS */
+        .promo-code-section {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid var(--border-color);
+        }
+
+        .promo-code-section h3 {
+            font-size: 1.3em;
+            color: var(--accent-purple);
+            margin-bottom: 20px;
+        }
+
+        .promo-code-divider {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .promo-code-divider span {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .promo-code-divider hr {
+            flex: 1;
+            border: none;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .promo-code-input-group {
+            display: flex;
+            gap: 10px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .promo-code-input-field {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .promo-code-input-field:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .promo-code-apply-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-green));
+            border: none;
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 16px rgba(124, 58, 237, 0.3);
+            white-space: nowrap;
+        }
+
+        .promo-code-apply-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 24px rgba(124, 58, 237, 0.5);
+        }
+
+        .promo-code-apply-btn:active {
+            transform: translateY(0);
+        }
+
+        /* ========== NOVA SEÇÃO DE CONFIGURAÇÕES ESTILO DISCORD ========== */
+        .settings-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .settings-overlay.active {
+            display: flex;
+        }
+
+        .settings-container {
+            display: flex;
+            width: 90%;
+            max-width: 1000px;
+            height: 80vh;
+            max-height: 700px;
+            background: var(--secondary-dark);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+            animation: slideUp 0.3s ease;
+        }
+
+        /* Barra Lateral das Configurações */
+        .settings-sidebar {
+            width: 260px;
+            background: var(--primary-dark);
+            border-right: 1px solid var(--border-color);
+            padding: 20px 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            z-index: 3001;
+        }
+
+        .settings-close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .settings-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-top: 20px;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+            padding: 0 12px;
+        }
+
+        .settings-section-title:first-child {
+            margin-top: 0;
+        }
+
+        .settings-sidebar .settings-item {
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: none;
+        }
+
+        .settings-sidebar .settings-item:hover {
+            background: rgba(124, 58, 237, 0.2);
+            color: var(--text-primary);
+        }
+
+        .settings-sidebar .settings-item.active {
+            background: var(--accent-purple);
+            color: var(--text-primary);
+        }
+
+        .settings-sidebar .settings-item i {
+            font-size: 16px;
+            min-width: 20px;
+        }
+
+        /* Painel Principal */
+        .settings-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .settings-header {
+            padding: 24px 32px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .settings-tabs {
+            display: flex;
+            gap: 24px;
+            padding: 0 32px;
+            margin-top: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .settings-tab {
+            padding: 12px 0;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            position: relative;
+            bottom: -1px;
+        }
+
+        .settings-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .settings-tab.active {
+            color: var(--accent-green);
+            border-bottom-color: var(--accent-green);
+        }
+
+        .settings-body {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .settings-tab-content {
+            display: none;
+        }
+
+        .settings-tab-content.active {
+            display: block;
+        }
+
+        /* Card de Configuração */
+        .settings-card {
+            background: var(--tertiary-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .settings-card:hover {
+            border-color: var(--accent-purple);
+            background: rgba(124, 58, 237, 0.05);
+        }
+
+        .settings-card-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .settings-card-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .settings-card-value {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            word-break: break-word;
+            max-width: 400px;
+        }
+
+        .settings-card-value.masked {
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+        }
+
+        .settings-card-button {
+            padding: 8px 16px;
+            background: var(--accent-purple);
+            border: none;
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .settings-card-button:hover {
+            background: var(--accent-green);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .settings-card-button.danger {
+            background: transparent;
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        .settings-card-button.danger:hover {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: #ff4444;
+        }
+
+        /* Seção de Segurança */
+        .security-section {
+            margin-bottom: 40px;
+        }
+
+        .security-section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .security-section-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        /* Status/Profile */
+        .profile-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-green));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .profile-username {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .profile-id {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-family: 'Courier New', monospace;
+        }
+
+        .profile-edit-btn {
+            padding: 10px 20px;
+            background: var(--accent-green);
+            border: none;
+            border-radius: 6px;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .profile-edit-btn:hover {
+            background: var(--neon-green);
+            transform: translateY(-2px);
+        }
+
+        /* Responsividade */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 240px;
+                padding: 16px 12px;
+            }
+
+            .logo {
+                font-size: 24px;
+                margin-bottom: 24px;
+            }
+
+            .player {
+                padding: 32px;
+                max-width: 450px;
+            }
+
+            .album-art {
+                width: 180px;
+                height: 180px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                max-height: 120px;
+                padding: 12px;
+                flex-direction: row;
+                align-items: center;
+                flex-shrink: 0;
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 100;
+            }
+
+            .sidebar.hidden {
+                display: none !important;
+            }
+
+            .toggle-sidebar-btn {
+                top: 20px;
+                left: 20px;
+            }
+
+            .logo {
+                font-size: 20px;
+                margin-bottom: 0;
+            }
+
+            .playlists-section {
+                flex: 1;
+                margin-left: 24px;
+                display: flex;
+                gap: 12px;
+                overflow-x: auto;
+            }
+
+            .playlists-title {
+                display: none;
+            }
+
+            .playlist-list {
+                flex-direction: row;
+                max-height: none;
+                overflow-x: auto;
+                overflow-y: hidden;
+            }
+
+            .playlist-item {
+                white-space: nowrap;
+            }
+
+            .main-content {
+                padding: 24px;
+                min-height: auto;
+                margin-top: 0;
+            }
+
+            .player {
+                padding: 24px;
+                max-width: 100%;
+            }
+
+            .album-art {
+                width: 120px;
+                height: 120px;
+            }
+
+            .song-title {
+                font-size: 18px;
+            }
+
+            .video-modal {
+                bottom: 80px;
+                right: 15px;
+                width: 240px;
+            }
+
+            .floating-video-btn {
+                bottom: 20px;
+                right: 20px;
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+
+            .floating-settings-btn {
+                bottom: 85px;
+                right: 20px;
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+
+            .floating-zoom-btn {
+                bottom: 150px;
+                right: 20px;
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+
+            .zoom-modal {
+                bottom: 210px;
+                right: 20px;
+            }
+
+            .warning-content {
+                padding: 30px;
+                border-radius: 16px;
+            }
+
+            .warning-title {
+                font-size: 22px;
+            }
+
+            .warning-text {
+                font-size: 14px;
+            }
+
+            .subscriptions-modal-content {
+                padding: 25px;
+            }
+
+            .subscriptions-modal-header h2 {
+                font-size: 1.8em;
+            }
+
+            .plans-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .plan-card.featured {
+                transform: scale(1);
+            }
+
+            .floating-cart-btn {
+                width: 45px;
+                height: 45px;
+                bottom: 20px;
+                right: 85px;
+            }
+
+            .close-subscriptions-btn {
+                right: 20px;
+                top: 20px;
+            }
+
+            .promo-code-input-group {
+                flex-direction: column;
+            }
+
+            .user-info-header {
+                top: auto;
+                bottom: auto;
+                position: absolute;
+                left: 16px;
+                right: 16px;
+            }
+
+            .settings-container {
+                flex-direction: column;
+                max-height: 90vh;
+            }
+
+            .settings-sidebar {
+                width: 100%;
+                max-height: 150px;
+                flex-direction: row;
+                overflow-x: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 12px;
+            }
+
+            .settings-section-title {
+                display: none;
+            }
+
+            .settings-sidebar .settings-item {
+                flex-shrink: 0;
+            }
+
+            .settings-content {
+                flex: 1;
+            }
+
+            .settings-header {
+                padding: 16px 20px;
+            }
+
+            .settings-title {
+                font-size: 20px;
+            }
+
+            .settings-body {
+                padding: 16px;
+            }
+
+            .settings-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .settings-card-button {
+                align-self: flex-end;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                max-height: 100px;
+            }
+
+            .main-content {
+                padding: 16px;
+            }
+
+            .player {
+                padding: 16px;
+            }
+
+            .album-art {
+                width: 100px;
+                height: 100px;
+                margin-bottom: 16px;
+            }
+
+            .controls {
+                gap: 16px;
+            }
+
+            .control-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+
+            .control-btn.play-btn {
+                width: 56px;
+                height: 56px;
+                font-size: 20px;
+            }
+
+            .song-title {
+                font-size: 16px;
+            }
+
+            .video-modal {
+                width: 200px;
+                bottom: 70px;
+                right: 10px;
+                padding: 15px;
+            }
+
+            .floating-zoom-btn {
+                width: 40px;
+                height: 40px;
+                bottom: 140px;
+                right: 10px;
+                font-size: 16px;
+            }
+
+            .zoom-modal {
+                width: 240px;
+                bottom: 190px;
+                right: 10px;
+            }
+
+            .warning-content {
+                padding: 20px;
+                width: 95%;
+            }
+
+            .warning-title {
+                font-size: 18px;
+                letter-spacing: 1px;
+            }
+
+            .warning-text {
+                font-size: 13px;
+            }
+
+            .warning-close {
+                font-size: 24px;
+            }
+
+            .auth-container {
+                width: 95%;
+                padding: 32px 20px;
+            }
+
+            .notifications-container {
+                top: 140px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+        }
+
+        /* Scrollbar Customizado */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-purple);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-green);
+        }
+
+        /* Scrollbar para Settings */
+        .settings-content::-webkit-scrollbar,
+        .settings-sidebar::-webkit-scrollbar,
+        .settings-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .settings-content::-webkit-scrollbar-track,
+        .settings-sidebar::-webkit-scrollbar-track,
+        .settings-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .settings-content::-webkit-scrollbar-thumb,
+        .settings-sidebar::-webkit-scrollbar-thumb,
+        .settings-body::-webkit-scrollbar-thumb {
+            background: var(--accent-purple);
+            border-radius: 4px;
+        }
+
+        .settings-content::-webkit-scrollbar-thumb:hover,
+        .settings-sidebar::-webkit-scrollbar-thumb:hover,
+        .settings-body::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-green);
+        }
+
+        /* Animações de Fade */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .fade-enter {
+            animation: fadeIn 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <!-- Vídeo de Fundo -->
+    <video id="video-background" autoplay muted loop playsinline></video>
+
+    <!-- Canvas para Partículas (por cima do vídeo) -->
+    <div id="canvas-container"></div>
+
+    <!-- ✅ CONTAINER DE NOTIFICAÇÕES -->
+    <div class="notifications-container" id="notificationsContainer"></div>
+
+    <!-- MODAL DE AUTENTICAÇÃO (LOGIN/CADASTRO) -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-container">
+            <div class="auth-title" id="authTitle">Login</div>
+            <div class="auth-subtitle" id="authSubtitle">Entre com sua conta MyVibe</div>
+            
+            <div class="auth-error" id="authError"></div>
+
+            <form class="auth-form" id="authForm">
+                <div class="auth-input-group">
+                    <label for="username" id="label-username">Nome de Usuário</label>
+                    <input type="text" id="username" class="auth-input" placeholder="Digite seu nome de usuário" required>
+                </div>
+
+                <div class="auth-input-group">
+                    <label for="password" id="label-password">Senha</label>
+                    <input type="password" id="password" class="auth-input" placeholder="Digite sua senha" required>
+                </div>
+
+                <div class="auth-input-group" id="languageGroup" style="display: none;">
+                    <label for="languageSelect" id="label-language">Idioma / País</label>
+                    <select id="languageSelect" name="language" class="auth-input auth-select">
+                        <option value="">-- Selecione seu idioma --</option>
+                        <option value="pt-BR">Português (Brasil)</option>
+                        <option value="en-US">English (USA)</option>
+                        <option value="es-ES">Español (España)</option>
+                        <option value="es-LA">Español (América Latina)</option>
+                        <option value="fr-FR">Français</option>
+                        <option value="de-DE">Deutsch</option>
+                        <option value="it-IT">Italiano</option>
+                        <option value="pt-PT">Português (Portugal)</option>
+                        <option value="ja-JP">日本語</option>
+                        <option value="ko-KR">한국어</option>
+                        <option value="zh-CN">中文 (简体)</option>
+                        <option value="zh-TW">繁體中文</option>
+                        <option value="ru-RU">Русский</option>
+                    </select>
+                </div>
+
+                <div class="auth-input-group" id="countryGroup" style="display: none;">
+                    <label for="countrySelect" id="label-country">País</label>
+                    <select id="countrySelect" name="country" class="auth-input auth-select">
+                        <option value="">-- Selecione seu país --</option>
+                    </select>
+                </div>
+
+                <div class="auth-input-group" id="confirmPasswordGroup" style="display: none;">
+                    <label for="confirmPassword" id="label-confirmPassword">Confirmar Senha</label>
+                    <input type="password" id="confirmPassword" class="auth-input" placeholder="Confirme sua senha">
+                </div>
+
+                <button type="submit" class="auth-button" id="authButton">Entrar</button>
+            </form>
+
+            <div class="auth-toggle">
+                <span id="toggleText">Não tem conta? </span>
+                <button type="button" id="toggleAuthMode">Criar conta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botão Toggle Sidebar -->
+    <button class="toggle-sidebar-btn" id="toggleSidebarBtn" title="Esconder/Mostrar Playlists">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Botão Fullscreen -->
+    <button class="fullscreen-btn" id="fullscreenBtn" title="Modo Tela Cheia (ESC para sair)">
+        <i class="fas fa-expand"></i>
+    </button>
+
+    <!-- Botão Flutuante para Assinaturas -->
+    <button class="floating-cart-btn" id="floatingCartBtn" title="Ver Planos de Assinatura">
+        <i class="fas fa-shopping-cart"></i>
+    </button>
+
+    <!-- Botão Flutuante para Zoom -->
+    <button class="floating-zoom-btn" id="floatingZoomBtn" title="Ajustar Tamanho">
+        <i class="fas fa-expand-alt"></i>
+    </button>
+
+    <!-- Botão Flutuante para Settings -->
+    <button class="floating-settings-btn" id="floatingSettingsBtn" title="Configurações">
+        <i class="fas fa-cog"></i>
+    </button>
+
+    <!-- Botão Flutuante para Video -->
+    <button class="floating-video-btn" id="floatingVideoBtn" title="Adicionar Vídeo de Fundo">
+        <i class="fas fa-video"></i>
+    </button>
+
+    <!-- Modal Zoom -->
+    <div class="zoom-modal" id="zoomModal">
+        <button class="zoom-modal-close" id="closeZoomModal">
+            <i class="fas fa-times"></i>
+        </button>
+        <h3 id="zoom-modal-title">🔍 Escala do Player</h3>
+        
+        <div class="zoom-slider-container">
+            <div>
+                <label for="zoomSlider" style="font-size: 12px; color: var(--text-secondary);">Tamanho</label>
+                <input type="range" id="zoomSlider" class="zoom-slider" min="50" max="150" value="100" step="5">
+            </div>
+            <div class="zoom-value">
+                <span id="zoomValue">100%</span>
+            </div>
+        </div>
+
+        <div class="zoom-buttons">
+            <button class="zoom-btn-small" onclick="setZoom(75)">Pequeno</button>
+            <button class="zoom-btn-small" onclick="setZoom(100)">Normal</button>
+            <button class="zoom-btn-small" onclick="setZoom(125)">Grande</button>
+        </div>
+
+        <button class="zoom-btn-reset" id="zoom-reset-btn" onclick="resetZoom()">↺ Resetar</button>
+    </div>
+
+    <!-- Modal Settings - ANTIGO -->
+    <div class="settings-modal" id="settingsModal">
+        <button class="settings-modal-close" id="closeSettingsModal">
+            <i class="fas fa-times"></i>
+        </button>
+        <h3 id="settings-modal-title">⚙️ Configurações</h3>
+        
+        <div class="settings-item">
+            <label id="particles-label" for="particlesToggle">Partículas</label>
+            <div class="toggle-switch" id="particlesToggle">
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ NOVA SEÇÃO DE CONFIGURAÇÕES ESTILO DISCORD -->
+    <div class="settings-overlay" id="settingsOverlay">
+        <button class="settings-close-btn" id="settingsCloseBtn">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <div class="settings-container">
+            <!-- SIDEBAR -->
+            <div class="settings-sidebar">
+                <div class="settings-section-title">Configurações de usuário</div>
+                
+                <button class="settings-item active" data-section="account">
+                    <i class="fas fa-user"></i>
+                    <span>Minha conta</span>
+                </button>
+                
+                <button class="settings-item" data-section="privacy">
+                    <i class="fas fa-lock"></i>
+                    <span>Privacidade</span>
+                </button>
+
+                <div class="settings-section-title">Configurações de confiança</div>
+                
+                <button class="settings-item" data-section="security">
+                    <i class="fas fa-shield"></i>
+                    <span>Segurança</span>
+                </button>
+                
+                <button class="settings-item" data-section="connections">
+                    <i class="fas fa-link"></i>
+                    <span>Conexões</span>
+                </button>
+
+                <div class="settings-section-title">Outros</div>
+                
+                <button class="settings-item" data-section="billing">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Assinaturas</span>
+                </button>
+            </div>
+
+            <!-- CONTEÚDO PRINCIPAL -->
+            <div class="settings-content">
+                <!-- HEADER -->
+                <div class="settings-header">
+                    <h2 class="settings-title" id="settingsTitle">Minha conta</h2>
+                </div>
+
+                <!-- CORPO -->
+                <div class="settings-body">
+                    <!-- SEÇÃO: MINHA CONTA -->
+                    <div class="settings-tab-content account-content active">
+                        <div class="profile-section">
+                            <div class="profile-header">
+                                <div class="profile-avatar" id="settingsAvatar">U</div>
+                                <div class="profile-info">
+                                    <div class="profile-username" id="settingsUsername">Usuário</div>
+                                    <div class="profile-id" id="settingsUserID">ID: xxxxx</div>
+                                </div>
+                                <button class="profile-edit-btn">
+                                    <i class="fas fa-edit"></i> Editar perfil de usuário
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Nome exibido</div>
+                                    <div class="settings-card-value" id="displayNameValue">Carregando...</div>
+                                </div>
+                                <button class="settings-card-button" onclick="editDisplayName()">
+                                    Editar
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Nome de usuário</div>
+                                    <div class="settings-card-value" id="userNameValue">Carregando...</div>
+                                </div>
+                                <button class="settings-card-button" onclick="editUsername()">
+                                    Editar
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">E-mail</div>
+                                    <div class="settings-card-value" id="emailValue">Carregando...</div>
+                                </div>
+                                <button class="settings-card-button" onclick="editEmail()">
+                                    Editar
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">País/Região</div>
+                                    <div class="settings-card-value" id="countryValue">Não definido</div>
+                                </div>
+                                <button class="settings-card-button" onclick="editCountry()">
+                                    Editar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO: PRIVACIDADE -->
+                    <div class="settings-tab-content privacy-content" style="display: none;">
+                        <div class="security-section">
+                            <div class="security-section-title">
+                                <i class="fas fa-lock"></i> Privacidade
+                            </div>
+                            <div class="security-section-subtitle">
+                                Controle quem pode ver suas informações e interagir com você
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Perfil público</div>
+                                    <div class="settings-card-value">Permitir que outros vejam seu perfil</div>
+                                </div>
+                                <div class="toggle-switch" id="publicProfileToggle"></div>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Mostrar status online</div>
+                                    <div class="settings-card-value">Deixar visível quando você está usando a plataforma</div>
+                                </div>
+                                <div class="toggle-switch active" id="onlineStatusToggle"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO: SEGURANÇA -->
+                    <div class="settings-tab-content security-content" style="display: none;">
+                        <div class="security-section">
+                            <div class="security-section-title">
+                                <i class="fas fa-shield"></i> Segurança e Autenticação
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Senha</div>
+                                    <div class="settings-card-value masked">••••••••••••</div>
+                                </div>
+                                <button class="settings-card-button" onclick="changePassword()">
+                                    Mudar senha
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Autenticação de dois fatores</div>
+                                    <div class="settings-card-value">Adicione uma camada extra de segurança</div>
+                                </div>
+                                <button class="settings-card-button" onclick="enable2FA()">
+                                    Ativar
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Sessões ativas</div>
+                                    <div class="settings-card-value">Gerencie dispositivos conectados</div>
+                                </div>
+                                <button class="settings-card-button" onclick="manageSessions()">
+                                    Ver
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="security-section">
+                            <div class="security-section-title">
+                                <i class="fas fa-exclamation-triangle"></i> Perigo
+                            </div>
+                            <div class="security-section-subtitle">
+                                Ações irreversíveis. Use com cuidado.
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Excluir conta</div>
+                                    <div class="settings-card-value">Remova permanentemente sua conta e todos os dados</div>
+                                </div>
+                                <button class="settings-card-button danger" onclick="deleteAccount()">
+                                    Excluir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO: CONEXÕES -->
+                    <div class="settings-tab-content connections-content" style="display: none;">
+                        <div class="security-section">
+                            <div class="security-section-title">
+                                <i class="fas fa-link"></i> Conexões
+                            </div>
+                            <div class="security-section-subtitle">
+                                Conecte suas contas de redes sociais e serviços externos
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">
+                                        <i class="fab fa-github"></i> GitHub
+                                    </div>
+                                    <div class="settings-card-value">Não conectado</div>
+                                </div>
+                                <button class="settings-card-button" onclick="connectService('github')">
+                                    Conectar
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">
+                                        <i class="fab fa-twitter"></i> Twitter
+                                    </div>
+                                    <div class="settings-card-value">Não conectado</div>
+                                </div>
+                                <button class="settings-card-button" onclick="connectService('twitter')">
+                                    Conectar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEÇÃO: ASSINATURAS -->
+                    <div class="settings-tab-content billing-content" style="display: none;">
+                        <div class="security-section">
+                            <div class="security-section-title">
+                                <i class="fas fa-credit-card"></i> Assinaturas e Pagamentos
+                            </div>
+                            <div class="security-section-subtitle">
+                                Gerencie seus planos e métodos de pagamento
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Plano atual</div>
+                                    <div class="settings-card-value" id="currentPlanValue">Básico (Grátis)</div>
+                                </div>
+                                <button class="settings-card-button" onclick="upgradePlan()">
+                                    Atualizar
+                                </button>
+                            </div>
+
+                            <div class="settings-card">
+                                <div class="settings-card-info">
+                                    <div class="settings-card-label">Próxima renovação</div>
+                                    <div class="settings-card-value" id="renewalDateValue">N/A</div>
+                                </div>
+                                <button class="settings-card-button" onclick="manageBilling()">
+                                    Gerenciar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Assinaturas -->
+    <div class="subscriptions-modal" id="subscriptionsModal">
+        <div class="subscriptions-modal-content">
+            <button class="close-subscriptions-btn" id="closeSubscriptionsBtn">&times;</button>
+
+            <div class="subscriptions-modal-header">
+                <h2 id="sub-modal-title">💎 Escolha seu Plano</h2>
+                <p id="sub-modal-subtitle">Selecione o plano que melhor se adequa às suas necessidades</p>
+            </div>
+
+            <div class="plans-grid">
+                <!-- Plano FREE -->
+                <div class="plan-card">
+                    <div class="plan-name">FREE</div>
+                    <div class="plan-price">Grátis</div>
+                    <div class="plan-price-period">Apenas fazer login</div>
+                    <ul class="plan-benefits">
+                        <li>MP4 up to 1080p, 100 MB per video limit</li>
+                        <li>MP3 – medium quality (128 kbps)</li>
+                        <li>Upload of up to 5 videos</li>
+                        <li>Creation of up to 10 playlists</li>
+                    </ul>
+                </div>
+
+                <!-- Plano PLUS -->
+                <div class="plan-card featured">
+                    <div class="plan-name">PLUS</div>
+                    <div class="plan-price">R$ 10</div>
+                    <div class="plan-price-period">a cada 2 semanas</div>
+                    <ul class="plan-benefits">
+                        <li>MP3/WAV – high quality (256 kbps)</li>
+                        <li>4K MP4, up to 500 MB per video</li>
+                        <li>Upload of up to 10 videos</li>
+                        <li>Total storage of 1500 MB</li>
+                        <li>Custom cover for playlists</li>
+                        <li>Creation of up to 20 playlists</li>
+                        <li>Custom thumbnail for songs</li>
+                        <li>Customizable artist name</li>
+                    </ul>
+                    <button class="plan-button gold" onclick="selectPlan('PLUS')">Buy</button>
+                </div>
+
+                <!-- Plano PRO -->
+                <div class="plan-card">
+                    <div class="plan-name">PRO</div>
+                    <div class="plan-price">R$ 18</div>
+                    <div class="plan-price-period">por mês</div>
+                    <ul class="plan-benefits">
+                        <li>MP3 – maximum quality (320 kbps)</li>
+                        <li>4K MP4 – unlimited size</li>
+                        <li>Unlimited upload</li>
+                        <li>Unlimited storage</li>
+                        <li>Custom cover for playlists</li>
+                        <li>Unlimited playlists</li>
+                        <li>Custom thumbnail for songs</li>
+                        <li>Customizable artist name</li>
+                    </ul>
+                    <button class="plan-button diamond" onclick="selectPlan('PRO')">Buy</button>
+                </div>
+            </div>
+
+            <!-- ✅ SEÇÃO DE CÓDIGO PROMOCIONAL -->
+            <div class="promo-code-section">
+                <h3></h3>
+                <div class="promo-code-divider">
+                    <hr>
+                    <span>OU</span>
+                    <hr>
+                </div>
+                <div class="promo-code-input-group">
+                    <input type="text" id="promoCodeInput" class="promo-code-input-field" placeholder="Code" maxlength="20">
+                    <button class="promo-code-apply-btn" onclick="applyPromoCode()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Flutuante de Video -->
+    <div class="video-modal" id="videoModal">
+        <button class="video-modal-close" id="closeVideoModal">
+            <i class="fas fa-times"></i>
+        </button>
+        <h3 id="video-modal-title">Vídeo de Fundo</h3>
+        <button class="video-input-btn" id="addVideoBtn">
+            <i class="fas fa-plus"></i> <span id="select-mp4-text">Selecionar MP4</span>
+        </button>
+        <div class="video-status" id="videoStatus">Nenhum vídeo carregado</div>
+        <input type="file" id="videoFileInput" accept="video/mp4">
+    </div>
+
+    <!-- ✅ MODAL DE EDIÇÃO DE ARTISTA -->
+    <div class="artist-edit-modal" id="artistEditModal">
+        <div class="artist-edit-content">
+            <div class="artist-edit-title" id="artist-edit-title">Editar Artista</div>
+            <input type="text" class="artist-edit-input" id="artistEditInput" placeholder="Digite o nome do artista...">
+            <div class="artist-edit-buttons">
+                <button class="artist-edit-btn" id="artistEditCancel">Cancelar</button>
+                <button class="artist-edit-btn confirm" id="artistEditConfirm">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container" id="appContainer">
+        <!-- Barra Lateral -->
+        <div class="sidebar" id="sidebar">
+            <div class="user-info-header" id="userInfoHeader">
+                <div class="user-display">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <div class="user-name" id="userNameDisplay">Usuário</div>
+                </div>
+                <button class="logout-btn" id="logoutBtn">Sair</button>
+            </div>
+
+            <div class="logo">
+                <i class="fas fa-music"></i>
+                MyVibe
+            </div>
+
+            <div class="playlists-section">
+                <div class="playlists-title" id="playlists-title-text">Playlists</div>
+                <div class="playlist-list" id="playlistList">
+                    <div class="playlist-item active">Favorits</div>
+                </div>
+                <button class="add-playlist-btn" id="addPlaylistBtn">
+                    <i class="fas fa-plus"></i>
+                    <span id="new-playlist-text">Nova</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div class="main-content">
+            <div class="player">
+                <!-- Capa do Álbum -->
+                <div class="album-art" id="albumArt">
+                    <i class="fas fa-music"></i>
+                    <!-- ✅ NOVO: OVERLAY DE UPLOAD CLICÁVEL -->
+                    <div class="album-art-upload-overlay">
+                        <div class="album-upload-text">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Upload Image</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informações da Música -->
+                <div class="song-info">
+                    <div class="song-title" id="songTitle">Load a song</div>
+                    <div class="song-artist" id="songArtist">Artist</div>
+                </div>
+
+                <!-- Barra de Progresso -->
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="time-display">
+                        <span id="currentTime">0:00</span>
+                        <span id="duration">0:00</span>
+                    </div>
+                </div>
+
+                <!-- Controles de Reprodução -->
+                <div class="controls">
+                    <button class="control-btn" id="prevBtn" title="Anterior">
+                        <i class="fas fa-step-backward"></i>
+                    </button>
+                    <button class="control-btn play-btn" id="playBtn" title="Play/Pause">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="control-btn" id="nextBtn" title="Próximo">
+                        <i class="fas fa-step-forward"></i>
+                    </button>
+                </div>
+
+                <!-- Botão Adicionar Músicas -->
+                <button class="add-music-btn" id="addMusicBtn">
+                    <i class="fas fa-plus"></i>
+                    <span id="add-music-text">Adicionar Músicas</span>
+                </button>
+
+                <!-- Input de Arquivo -->
+                <input type="file" id="fileInput" multiple accept="audio/*">
+                <input type="file" id="albumImageInput" accept="image/png,image/jpeg,image/gif">
+                <input type="hidden" id="albumArtistInput">
+
+                <!-- Lista de Músicas Carregadas -->
+                <div class="playlist-content" id="playlistContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Nova Playlist -->
+    <div class="modal" id="playlistModal">
+        <div class="modal-content">
+            <div class="modal-title" id="modal-title-text">Criar Nova Playlist</div>
+            <input type="text" class="modal-input" id="playlistNameInput" placeholder="Nome da playlist...">
+            <div class="modal-buttons">
+                <button class="modal-btn" id="cancelBtn">Cancelar</button>
+                <button class="modal-btn confirm" id="confirmBtn">Criar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ SISTEMA DE CÓDIGOS PROMOCIONAIS INTEGRADO -->
+    <script>
+        // ✅ CÓDIGOS PROMOCIONAIS VÁLIDOS
+        const VALID_PROMO_CODES = {
+            'MYVIBE2025': 'PLUS',
+            'DEVCODE': 'PLUS',
+            'GOLDEN2025': 'PLUS',
+            'AESTHER2025': 'PLUS',
+            'WELCOME': 'PLUS'
+        };
+
+        // ✅ OBTER CÓDIGOS USADOS DO USUÁRIO ATUAL
+        function getUsedPromoCodes() {
+            const currentUser = sessionStorage.getItem('myvibeCurrentUser');
+            if (!currentUser) return [];
+            const key = `promoCodesUsed_${currentUser}`;
+            const stored = localStorage.getItem(key);
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        // ✅ SALVAR CÓDIGO COMO USADO
+        function markPromoCodeAsUsed(code) {
+            const currentUser = sessionStorage.getItem('myvibeCurrentUser');
+            if (!currentUser) return;
+            const key = `promoCodesUsed_${currentUser}`;
+            const usedCodes = getUsedPromoCodes();
+            if (!usedCodes.includes(code)) {
+                usedCodes.push(code);
+                localStorage.setItem(key, JSON.stringify(usedCodes));
+            }
+        }
+
+        // ✅ VERIFICAR SE CÓDIGO JÁ FOI USADO
+        function hasUsedPromoCode(code) {
+            return getUsedPromoCodes().includes(code);
+        }
+
+        // ✅ FUNÇÃO PARA APLICAR CÓDIGO PROMOCIONAL
+        function applyPromoCode() {
+            const promoInput = document.getElementById('promoCodeInput');
+            const code = promoInput.value.trim().toUpperCase();
+
+            if (!code) {
+                if (window.notificationSystem) {
+                    window.notificationSystem.warning('Digite um código!');
+                }
+                return;
+            }
+
+            // ✅ VERIFICAR SE CÓDIGO JÁ FOI USADO NESTA CONTA
+            if (hasUsedPromoCode(code)) {
+                if (window.notificationSystem) {
+                    window.notificationSystem.error('Você já utilizou este código promocional!');
+                }
+                promoInput.value = '';
+                return;
+            }
+
+            if (VALID_PROMO_CODES[code]) {
+                const plan = VALID_PROMO_CODES[code];
+                if (window.authSystem) {
+                    // ✅ USAR MÉTODO PARA PLANO COM CÓDIGO (3 DIAS)
+                    window.authSystem.purchasePromoSubscription(plan, code);
+                    markPromoCodeAsUsed(code);
+                    promoInput.value = '';
+                    document.getElementById('subscriptionsModal').classList.remove('active');
+                }
+            } else {
+                if (window.notificationSystem) {
+                    window.notificationSystem.error(' Código inválido!');
+                }
+                promoInput.value = '';
+            }
+        }
+
+        // ✅ PERMITIR ENTER PARA APLICAR CÓDIGO
+        document.addEventListener('DOMContentLoaded', function() {
+            const promoInput = document.getElementById('promoCodeInput');
+            if (promoInput) {
+                promoInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        applyPromoCode();
+                    }
+                });
+            }
+        });
+    </script>
+
+    <!-- ✅ HELPERS DE DATA E SESSÃO -->
+    <script>
+        // ✅ Obter a data atual no formato YYYY-MM-DD
+        function getTodayDateKey() {
+            const today = new Date();
+            return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        }
+
+        // ✅ Salvar último usuário + data da sessão
+        function saveSessionDay(username) {
+            localStorage.setItem('myvibeLastUser', username);
+            localStorage.setItem('myvibeLastLoginDay', getTodayDateKey());
+        }
+
+        // ✅ Limpar dia da sessão
+        function clearSessionDay() {
+            localStorage.removeItem('myvibeLastLoginDay');
+        }
+    </script>
+
+    <!-- ✅ SISTEMA DE NOTIFICAÇÕES (GLOBAL E ACESSÍVEL) -->
+    <script>
+        class NotificationSystem {
+            constructor() {
+                this.container = document.getElementById('notificationsContainer');
+                this.activeNotifications = [];
+            }
+
+            show(message, type = 'info', duration = 4000) {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                
+                const iconMap = {
+                    'success': 'fas fa-check-circle',
+                    'error': 'fas fa-exclamation-circle',
+                    'warning': 'fas fa-exclamation-triangle',
+                    'info': 'fas fa-info-circle'
+                };
+
+                notification.innerHTML = `
+                    <div class="notification-icon">
+                        <i class="${iconMap[type] || iconMap['info']}"></i>
+                    </div>
+                    <div class="notification-content">${message}</div>
+                    <button class="notification-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="notification-progress"></div>
+                `;
+
+                const closeBtn = notification.querySelector('.notification-close');
+                closeBtn.addEventListener('click', () => {
+                    this.removeNotification(notification);
+                });
+
+                this.container.appendChild(notification);
+                this.activeNotifications.push(notification);
+
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        this.removeNotification(notification);
+                    }
+                }, duration);
+
+                return notification;
+            }
+
+            removeNotification(notification) {
+                notification.classList.add('fade-out');
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                    this.activeNotifications = this.activeNotifications.filter(n => n !== notification);
+                }, 300);
+            }
+
+            success(message, duration = 4000) {
+                return this.show(message, 'success', duration);
+            }
+
+            error(message, duration = 4000) {
+                return this.show(message, 'error', duration);
+            }
+
+            warning(message, duration = 4000) {
+                return this.show(message, 'warning', duration);
+            }
+
+            info(message, duration = 4000) {
+                return this.show(message, 'info', duration);
+            }
+        }
+
+        window.notificationSystem = new NotificationSystem();
+        console.log('✅ NotificationSystem inicializado');
+    </script>
+
+    <!-- ✅ SISTEMA DE GERENCIAMENTO DE IDIOMAS/PAÍS DINÂMICO -->
+    <script>
+        const languageCountries = {
+            'pt-BR': ['Brazil'],
+            'en-US': ['United States', 'Canada', 'Australia', 'United Kingdom'],
+            'es-ES': ['Spain'],
+            'es-LA': ['Mexico', 'Argentina', 'Colombia', 'Peru', 'Chile', 'Venezuela', 'Ecuador', 'Bolivia'],
+            'fr-FR': ['France', 'Belgium', 'Switzerland', 'Canada'],
+            'de-DE': ['Germany', 'Austria', 'Switzerland'],
+            'it-IT': ['Italy', 'Switzerland'],
+            'pt-PT': ['Portugal'],
+            'ja-JP': ['Japan'],
+            'ko-KR': ['South Korea'],
+            'zh-CN': ['China'],
+            'zh-TW': ['Taiwan', 'Hong Kong'],
+            'ru-RU': ['Russia', 'Belarus', 'Kazakhstan']
+        };
+
+        const languageSelect = document.getElementById('languageSelect');
+        const countrySelect = document.getElementById('countrySelect');
+        const languageGroup = document.getElementById('languageGroup');
+        const countryGroup = document.getElementById('countryGroup');
+        const authForm = document.getElementById('authForm');
+
+        languageSelect.addEventListener('change', function() {
+            const selectedLanguage = this.value;
+            
+            if (selectedLanguage) {
+                countryGroup.style.display = 'flex';
+                
+                const countries = languageCountries[selectedLanguage] || [];
+                countrySelect.innerHTML = '';
+                
+                countries.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country;
+                    option.textContent = country;
+                    countrySelect.appendChild(option);
+                });
+                
+                if (countries.length > 0) {
+                    countrySelect.value = countries[0];
+                }
+            } else {
+                countryGroup.style.display = 'none';
+                countrySelect.innerHTML = '';
+            }
+        });
+
+        authForm.addEventListener('submit', (e) => {
+            if (languageGroup.style.display === 'none') {
+                languageSelect.removeAttribute('required');
+                countrySelect.removeAttribute('required');
+            } else {
+                languageSelect.setAttribute('required', 'required');
+                countrySelect.setAttribute('required', 'required');
+            }
+        });
+
+        let playlistsLoaded = false;
+    </script>
+
+    <!-- ✅ SISTEMA DE BENEFÍCIOS POR PLANO -->
+    <script>
+        class SubscriptionBenefits {
+            constructor(authSystem) {
+                this.authSystem = authSystem;
+                this.currentUser = authSystem.currentUser;
+                this.userData = authSystem.getUserData();
+                this.initializeVideoHistory();
+            }
+
+            initializeVideoHistory() {
+                if (!this.userData.videoHistory) {
+                    this.userData.videoHistory = [];
+                    this.authSystem.saveUserData(this.userData);
+                }
+            }
+
+            getPlanBenefits() {
+                this.userData = this.authSystem.getUserData();
+                const plan = this.userData.subscription.plan;
+                
+                const benefits = {
+                    'Básico': {
+                        maxPlaylistCount: 10,
+                        maxVideoCount: 5,
+                        maxVideoSize: 100,
+                        totalStorageLimit: 100,
+                        audioQuality: 128,
+                        videoResolution: '1080p',
+                        customThumbnail: false,
+                        customArtistName: false
+                    },
+                    'PLUS': {
+                        maxPlaylistCount: 20,
+                        maxVideoCount: 10,
+                        maxVideoSize: 500,
+                        totalStorageLimit: 1500,
+                        audioQuality: 256,
+                        videoResolution: '4K',
+                        customThumbnail: true,
+                        customArtistName: true
+                    },
+                    'PRO': {
+                        maxPlaylistCount: Infinity,
+                        maxVideoCount: Infinity,
+                        maxVideoSize: Infinity,
+                        totalStorageLimit: Infinity,
+                        audioQuality: 320,
+                        videoResolution: '4K Ilimitado',
+                        customThumbnail: true,
+                        customArtistName: true
+                    }
+                };
+                
+                return benefits[plan] || benefits['Básico'];
+            }
+
+            canAddVideo(videoSizeMB) {
+                const benefits = this.getPlanBenefits();
+                const storage = this.getStorageInfo();
+                
+                if (videoSizeMB > benefits.maxVideoSize) {
+                    return {
+                        allowed: false,
+                        reason: `Vídeo muito grande!\n\nMáximo por vídeo: ${benefits.maxVideoSize}MB\nSeu vídeo: ${videoSizeMB.toFixed(2)}MB`
+                    };
+                }
+                
+                if (storage.videosUsed >= benefits.maxVideoCount) {
+                    return {
+                        allowed: false,
+                        reason: `Limite de vídeos atingido!\n\nSeu plano (${this.userData.subscription.plan}) permite: ${benefits.maxVideoCount} vídeos`
+                    };
+                }
+                
+                if (storage.remaining < videoSizeMB) {
+                    return {
+                        allowed: false,
+                        reason: `Espaço insuficiente!\n\nNecessário: ${videoSizeMB.toFixed(2)}MB\nDisponível: ${storage.remaining.toFixed(2)}MB`
+                    };
+                }
+                
+                return { allowed: true };
+            }
+
+            canCreatePlaylist() {
+                const benefits = this.getPlanBenefits();
+                const playlistInfo = this.getPlaylistInfo();
+                
+                if (playlistInfo.used >= benefits.maxPlaylistCount) {
+                    return {
+                        allowed: false,
+                        reason: `Limite de playlists atingido!\n\nSeu plano (${this.userData.subscription.plan}) permite apenas ${benefits.maxPlaylistCount} playlists.`
+                    };
+                }
+                
+                return { allowed: true };
+            }
+
+            canCustomizeThumbnail() {
+                const benefits = this.getPlanBenefits();
+                return benefits.customThumbnail;
+            }
+
+            canCustomizeArtistName() {
+                const benefits = this.getPlanBenefits();
+                return benefits.customArtistName;
+            }
+
+            addVideoToHistory(videoName, videoSizeMB, resolution) {
+                if (!this.userData.videoHistory) {
+                    this.userData.videoHistory = [];
+                }
+                
+                this.userData.videoHistory.push({
+                    id: Date.now() + Math.random(),
+                    name: videoName,
+                    size: videoSizeMB,
+                    resolution: resolution,
+                    addedAt: new Date().toISOString()
+                });
+                
+                this.authSystem.saveUserData(this.userData);
+            }
+
+            removeVideoFromHistory(videoIndex) {
+                this.userData = this.authSystem.getUserData();
+                
+                if (!this.userData.videoHistory || this.userData.videoHistory.length === 0) {
+                    return;
+                }
+                
+                if (videoIndex >= 0 && videoIndex < this.userData.videoHistory.length) {
+                    const videoToRemove = this.userData.videoHistory[videoIndex];
+                    this.userData.videoHistory.splice(videoIndex, 1);
+                    this.authSystem.saveUserData(this.userData);
+                }
+            }
+
+            getStorageInfo() {
+                this.userData = this.authSystem.getUserData();
+                const benefits = this.getPlanBenefits();
+                
+                let totalUsed = 0;
+                let videosUsed = 0;
+                
+                if (this.userData.videoHistory && this.userData.videoHistory.length > 0) {
+                    videosUsed = this.userData.videoHistory.length;
+                    totalUsed = this.userData.videoHistory.reduce((sum, video) => {
+                        const videoSize = typeof video.size === 'string' ? parseFloat(video.size) : video.size;
+                        return sum + videoSize;
+                    }, 0);
+                }
+                
+                const remaining = benefits.totalStorageLimit === Infinity ? Infinity : benefits.totalStorageLimit - totalUsed;
+                
+                return {
+                    totalUsed: totalUsed,
+                    totalLimit: benefits.totalStorageLimit,
+                    remaining: remaining,
+                    videosUsed: videosUsed,
+                    videosLimit: benefits.maxVideoCount
+                };
+            }
+
+            getPlaylistInfo() {
+                this.userData = this.authSystem.getUserData();
+                const benefits = this.getPlanBenefits();
+                
+                let playlistCount = 0;
+                
+                if (window.myvibePlayer && window.myvibePlayer.playlists) {
+                    const allPlaylists = Object.keys(window.myvibePlayer.playlists);
+                    playlistCount = Math.max(0, allPlaylists.length - 1);
+                    playlistsLoaded = true;
+                }
+                
+                const remaining = benefits.maxPlaylistCount === Infinity ? Infinity : benefits.maxPlaylistCount - playlistCount;
+                
+                return {
+                    used: playlistCount,
+                    limit: benefits.maxPlaylistCount,
+                    remaining: remaining === Infinity ? Infinity : Math.max(0, remaining)
+                };
+            }
+
+            getAudioQuality() {
+                const benefits = this.getPlanBenefits();
+                return benefits.audioQuality;
+            }
+
+            showPlanBenefitsInfo() {
+                // Função para debug
+            }
+        }
+    </script>
+
+    <!-- ✅ SISTEMA DE AUTENTICAÇÃO COM AUTO LOGIN -->
+    <script>
+        class AuthSystem {
+            constructor() {
+                this.currentUser = null;
+                this.users = this.loadUsers();
+                this.isLoginMode = true;
+                this.init();
+            }
+
+            init() {
+                this.checkSession();
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                const authForm = document.getElementById('authForm');
+                const toggleAuthBtn = document.getElementById('toggleAuthMode');
+                const logoutBtn = document.getElementById('logoutBtn');
+
+                authForm.addEventListener('submit', (e) => this.handleAuth(e));
+                toggleAuthBtn.addEventListener('click', () => this.toggleAuthMode());
+                logoutBtn.addEventListener('click', () => this.logout());
+            }
+
+            loadUsers() {
+                const stored = localStorage.getItem('myvibeUsers');
+                return stored ? JSON.parse(stored) : {};
+            }
+
+            saveUsers() {
+                localStorage.setItem('myvibeUsers', JSON.stringify(this.users));
+            }
+
+            checkSession() {
+                const sessionUser = sessionStorage.getItem('myvibeCurrentUser');
+                const lastUser = localStorage.getItem('myvibeLastUser');
+                const lastLoginDay = localStorage.getItem('myvibeLastLoginDay');
+                const todayKey = getTodayDateKey();
+
+                // 🔹 Se já existe sessão na aba, mantém normal
+                if (sessionUser) {
+                    this.currentUser = JSON.parse(sessionUser);
+                    this.hideAuthOverlay();
+                    this.initializeUserSubscription();
+                    return;
+                }
+
+                // 🔹 Sem sessionStorage, mas há um usuário salvo e é o mesmo dia → auto login
+                if (!sessionUser && lastUser && lastLoginDay === todayKey && this.users[lastUser]) {
+                    this.currentUser = lastUser;
+                    sessionStorage.setItem('myvibeCurrentUser', JSON.stringify(this.currentUser));
+
+                    const userData = this.users[lastUser];
+                    if (userData.language) {
+                        sessionStorage.setItem('myvibeLanguage', userData.language);
+                    }
+
+                    this.hideAuthOverlay();
+                    this.initializeUserSubscription();
+                    window.notificationSystem.info('Sucess');
+                    return;
+                }
+
+                // 🔹 Dia mudou OU não há usuário salvo → força novo login
+                if (lastLoginDay && lastLoginDay !== todayKey) {
+                    clearSessionDay();
+                }
+
+                this.showAuthOverlay();
+            }
+
+            toggleAuthMode() {
+                this.isLoginMode = !this.isLoginMode;
+                const titleEl = document.getElementById('authTitle');
+                const subtitleEl = document.getElementById('authSubtitle');
+                const buttonEl = document.getElementById('authButton');
+                const toggleTextEl = document.getElementById('toggleText');
+                const toggleBtnEl = document.getElementById('toggleAuthMode');
+                const confirmPasswordGroup = document.getElementById('confirmPasswordGroup');
+                const languageGroup = document.getElementById('languageGroup');
+
+                if (this.isLoginMode) {
+                    titleEl.textContent = 'Login';
+                    subtitleEl.textContent = 'Entre com sua conta MyVibe';
+                    buttonEl.textContent = 'Entrar';
+                    toggleTextEl.textContent = 'Não tem conta? ';
+                    toggleBtnEl.textContent = 'Criar conta';
+                    confirmPasswordGroup.style.display = 'none';
+                    languageGroup.style.display = 'none';
+                    countryGroup.style.display = 'none';
+                } else {
+                    titleEl.textContent = 'Cadastro';
+                    subtitleEl.textContent = 'Crie sua conta MyVibe';
+                    buttonEl.textContent = 'Criar Conta';
+                    toggleTextEl.textContent = 'Já tem conta? ';
+                    toggleBtnEl.textContent = 'Fazer login';
+                    confirmPasswordGroup.style.display = 'flex';
+                    languageGroup.style.display = 'flex';
+                }
+
+                document.getElementById('authError').classList.remove('show');
+                document.getElementById('authForm').reset();
+            }
+
+            handleAuth(e) {
+                e.preventDefault();
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value;
+                const errorEl = document.getElementById('authError');
+
+                errorEl.classList.remove('show');
+
+                if (!username || !password) {
+                    this.showError('Preencha todos os campos!', errorEl);
+                    return;
+                }
+
+                if (this.isLoginMode) {
+                    this.login(username, password, errorEl);
+                } else {
+                    const confirmPassword = document.getElementById('confirmPassword').value;
+                    if (password !== confirmPassword) {
+                        this.showError('As senhas não correspondem!', errorEl);
+                        return;
+                    }
+                    
+                    const languageValue = languageSelect.value;
+                    const countryValue = countrySelect.value;
+                    
+                    if (!languageValue || !countryValue) {
+                        this.showError('Selecione idioma e país!', errorEl);
+                        return;
+                    }
+                    
+                    this.register(username, password, errorEl);
+                }
+            }
+
+            register(username, password, errorEl) {
+                if (this.users[username]) {
+                    this.showError('Esse usuário já existe!', errorEl);
+                    window.notificationSystem.warning('Esse usuário já existe!');
+                    return;
+                }
+
+                const selectedLanguage = languageSelect.value;
+                const selectedCountry = countrySelect.value;
+
+                const hashedPassword = btoa(password);
+                this.users[username] = {
+                    password: hashedPassword,
+                    playlists: {
+                        'Favorits': []
+                    },
+                    backgroundVideo: null,
+                    videoHistory: [],
+                    language: selectedLanguage,
+                    country: selectedCountry,
+                    musicCustomizations: {},
+                    subscription: {
+                        plan: 'Básico',
+                        purchaseDate: new Date().toISOString(),
+                        expiryDate: null,
+                        isActive: true
+                    },
+                    createdAt: new Date().toISOString()
+                };
+
+                this.saveUsers();
+                this.currentUser = username;
+                sessionStorage.setItem('myvibeCurrentUser', JSON.stringify(this.currentUser));
+                sessionStorage.setItem('myvibeLanguage', selectedLanguage);
+                saveSessionDay(username);
+                this.hideAuthOverlay();
+                document.getElementById('authForm').reset();
+                this.toggleAuthMode();
+                window.notificationSystem.success('Conta criada com sucesso!');
+                location.reload();
+            }
+
+            login(username, password, errorEl) {
+                if (!this.users[username]) {
+                    this.showError('Usuário não encontrado!', errorEl);
+                    window.notificationSystem.error('Usuário não encontrado!');
+                    return;
+                }
+
+                const hashedPassword = btoa(password);
+                if (this.users[username].password !== hashedPassword) {
+                    this.showError('Senha incorreta!', errorEl);
+                    window.notificationSystem.error('Senha incorreta!');
+                    return;
+                }
+
+                this.currentUser = username;
+                sessionStorage.setItem('myvibeCurrentUser', JSON.stringify(this.currentUser));
+                
+                const userData = this.users[username];
+                if (userData.language) {
+                    sessionStorage.setItem('myvibeLanguage', userData.language);
+                }
+                
+                saveSessionDay(username);
+                this.hideAuthOverlay();
+                document.getElementById('authForm').reset();
+                window.notificationSystem.success('Login realizado com sucesso!');
+                location.reload();
+            }
+
+            logout() {
+                this.currentUser = null;
+                sessionStorage.removeItem('myvibeCurrentUser');
+                sessionStorage.removeItem('myvibeLanguage');
+                clearSessionDay();
+                window.notificationSystem.info('Você foi desconectado!');
+                location.reload();
+            }
+
+            showError(message, errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.add('show');
+            }
+
+            showAuthOverlay() {
+                document.getElementById('authOverlay').classList.remove('hidden');
+            }
+
+            hideAuthOverlay() {
+                document.getElementById('authOverlay').classList.add('hidden');
+            }
+
+            getUserData() {
+                return this.users[this.currentUser] || null;
+            }
+
+            saveUserData(data) {
+                this.users[this.currentUser] = data;
+                this.saveUsers();
+            }
+
+            initializeUserSubscription() {
+                const userData = this.users[this.currentUser];
+                
+                if (!userData.subscription) {
+                    userData.subscription = {
+                        plan: 'Básico',
+                        purchaseDate: new Date().toISOString(),
+                        expiryDate: null,
+                        isActive: true
+                    };
+                    this.saveUsers();
+                }
+
+                if (!userData.musicCustomizations) {
+                    userData.musicCustomizations = {};
+                    this.saveUsers();
+                }
+                
+                this.checkSubscriptionExpiry();
+            }
+
+            checkSubscriptionExpiry() {
+                const userData = this.users[this.currentUser];
+                const subscription = userData.subscription;
+                
+                if (!subscription || subscription.plan === 'Básico') {
+                    return;
+                }
+                
+                const now = new Date();
+                const expiryDate = new Date(subscription.expiryDate);
+                
+                if (now > expiryDate) {
+                    subscription.plan = 'Básico';
+                    subscription.isActive = true;
+                    subscription.expiryDate = null;
+                    this.saveUsers();
+                    window.notificationSystem.warning('Sua assinatura expirou. Plano alterado para FREE.');
+                }
+            }
+
+            getCurrentSubscription() {
+                const userData = this.users[this.currentUser];
+                return userData.subscription || { plan: 'Básico', isActive: true };
+            }
+
+            purchaseSubscription(planName) {
+                const userData = this.users[this.currentUser];
+                const now = new Date();
+                let expiryDate = null;
+
+                if (planName === 'FREE') {
+                    expiryDate = null;
+                } else if (planName === 'PLUS') {
+                    expiryDate = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+                } else if (planName === 'PRO') {
+                    expiryDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+                }
+
+                userData.subscription = {
+                    plan: planName,
+                    purchaseDate: now.toISOString(),
+                    expiryDate: expiryDate ? expiryDate.toISOString() : null,
+                    isActive: true
+                };
+
+                this.saveUsers();
+                
+                if (expiryDate) {
+                    const expiryFormatted = expiryDate.toLocaleDateString('pt-BR');
+                    window.notificationSystem.success(`Plano ${planName} ativado!\n Expira em: ${expiryFormatted}`);
+                } else {
+                    window.notificationSystem.success(`Plano ${planName} ativado!`);
+                }
+            }
+
+            // ✅ NOVO: MÉTODO PARA ATIVAR PLANO POR CÓDIGO PROMOCIONAL (3 DIAS)
+            purchasePromoSubscription(planName, promoCode) {
+                const userData = this.users[this.currentUser];
+                const now = new Date();
+                
+                // ✅ CÓDIGOS PROMOCIONAIS DURAM EXATAMENTE 3 DIAS
+                const expiryDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+                userData.subscription = {
+                    plan: planName,
+                    purchaseDate: now.toISOString(),
+                    expiryDate: expiryDate.toISOString(),
+                    isActive: true,
+                    promoCode: promoCode,
+                    isPromo: true
+                };
+
+                this.saveUsers();
+                
+                // ✅ MOSTRAR APENAS 3 DIAS NA MENSAGEM
+                window.notificationSystem.success(`Plano ${planName} ativado!\n Código promocional\n Válido por: 3 dias`);
+            }
+
+            getSubscriptionInfo() {
+                const subscription = this.getCurrentSubscription();
+                const info = {
+                    plan: subscription.plan,
+                    isActive: subscription.isActive,
+                    purchaseDate: subscription.purchaseDate,
+                    expiryDate: subscription.expiryDate,
+                    daysRemaining: null
+                };
+
+                if (subscription.expiryDate) {
+                    const now = new Date();
+                    const expiry = new Date(subscription.expiryDate);
+                    const daysRemaining = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+                    info.daysRemaining = Math.max(0, daysRemaining);
+                }
+
+                return info;
+            }
+        }
+
+        // ✅ INSTANCIAR SISTEMAS GLOBALMENTE
+        window.authSystem = new AuthSystem();
+        window.subscriptionBenefits = new SubscriptionBenefits(window.authSystem);
+
+        function updateUserDisplay() {
+            if (window.authSystem.currentUser) {
+                const firstLetter = window.authSystem.currentUser.charAt(0).toUpperCase();
+                document.getElementById('userAvatar').textContent = firstLetter;
+                document.getElementById('userNameDisplay').textContent = window.authSystem.currentUser;
+            }
+        }
+
+        function updateSubscriptionDisplay() {
+            const subInfo = window.authSystem.getSubscriptionInfo();
+            
+            if (subInfo.daysRemaining !== null) {
+                console.log(`⏰ Dias restantes: ${subInfo.daysRemaining}`);
+            }
+        }
+
+        // ========== ✅ MOSTRAR INTERFACE APÓS LOGIN/CADASTRO ==========
+        window.addEventListener('load', () => {
+            const currentUser = sessionStorage.getItem('myvibeCurrentUser');
+            const appContainer = document.getElementById('appContainer');
+            
+            if (currentUser) {
+                appContainer.style.display = 'flex';
+                updateUserDisplay();
+                updateSubscriptionDisplay();
+            } else {
+                appContainer.style.display = 'none';
+            }
+
+            const isHidden = localStorage.getItem('myvibeSidebarHidden') === 'true';
+            const sidebar = document.getElementById('sidebar');
+            const toggleBtn = document.getElementById('toggleSidebarBtn');
+            
+            if (isHidden) {
+                sidebar.classList.add('hidden');
+                toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            }
+        });
+
+        // ========== ✅ SISTEMA DE CUSTOMIZAÇÃO DE THUMBNAILS E ARTISTAS ==========
+        class MusicCustomizer {
+            constructor() {
+                this.currentSongPath = null;
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                const albumArt = document.getElementById('albumArt');
+                const albumImageInput = document.getElementById('albumImageInput');
+                const songArtist = document.getElementById('songArtist');
+
+                if (albumArt) {
+                    albumArt.addEventListener('click', () => this.handleUploadClick());
+                }
+
+                if (albumImageInput) {
+                    albumImageInput.addEventListener('change', (e) => this.handleImageSelect(e));
+                }
+
+                if (songArtist) {
+                    songArtist.addEventListener('click', () => this.handleEditArtist());
+                }
+
+                const artistEditCancel = document.getElementById('artistEditCancel');
+                const artistEditConfirm = document.getElementById('artistEditConfirm');
+                if (artistEditCancel) artistEditCancel.addEventListener('click', () => this.closeArtistModal());
+                if (artistEditConfirm) artistEditConfirm.addEventListener('click', () => this.saveArtistName());
+            }
+
+            handleUploadClick() {
+                const benefits = window.subscriptionBenefits.getPlanBenefits();
+                
+                if (!benefits.customThumbnail) {
+                    window.notificationSystem.warning('Este recurso está disponível apenas para Plano PLUS e PRO!');
+                    return;
+                }
+
+                if (!this.currentSongPath) {
+                    window.notificationSystem.warning('Selecione uma música primeiro!');
+                    return;
+                }
+
+                document.getElementById('albumImageInput').click();
+            }
+
+            handleImageSelect(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const validTypes = ['image/png', 'image/jpeg', 'image/gif'];
+                if (!validTypes.includes(file.type)) {
+                    window.notificationSystem.error('Formato inválido! Use PNG, JPG ou GIF.');
+                    return;
+                }
+
+                if (file.size > 5 * 1024 * 1024) {
+                    window.notificationSystem.error('Arquivo muito grande! Máximo 5MB.');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64Image = event.target.result;
+                    this.saveCustomization('thumbnail', base64Image);
+                };
+                reader.readAsDataURL(file);
+            }
+
+            handleEditArtist() {
+                const benefits = window.subscriptionBenefits.getPlanBenefits();
+                
+                if (!benefits.customArtistName) {
+                    window.notificationSystem.warning('Este recurso está disponível apenas para Plano PLUS e PRO!');
+                    return;
+                }
+
+                if (!this.currentSongPath) {
+                    window.notificationSystem.warning('Selecione uma música primeiro!');
+                    return;
+                }
+
+                const customizations = window.authSystem.getUserData().musicCustomizations || {};
+                const currentArtist = customizations[this.currentSongPath]?.artistName || 'Artista Desconhecido';
+                
+                document.getElementById('artistEditInput').value = currentArtist;
+                document.getElementById('artistEditModal').classList.add('active');
+            }
+
+            closeArtistModal() {
+                document.getElementById('artistEditModal').classList.remove('active');
+            }
+
+            saveArtistName() {
+                const newArtistName = document.getElementById('artistEditInput').value.trim();
+                
+                if (!newArtistName) {
+                    window.notificationSystem.warning('Digite um nome de artista!');
+                    return;
+                }
+
+                this.saveCustomization('artistName', newArtistName);
+                this.closeArtistModal();
+                this.loadArtistInfo();
+                window.notificationSystem.success('Nome do artista atualizado!');
+            }
+
+            saveCustomization(type, value) {
+                if (!this.currentSongPath) return;
+
+                const userData = window.authSystem.getUserData();
+                if (!userData.musicCustomizations) {
+                    userData.musicCustomizations = {};
+                }
+
+                if (!userData.musicCustomizations[this.currentSongPath]) {
+                    userData.musicCustomizations[this.currentSongPath] = {};
+                }
+
+                userData.musicCustomizations[this.currentSongPath][type] = value;
+                window.authSystem.saveUserData(userData);
+
+                if (type === 'thumbnail') {
+                    window.notificationSystem.success('Thumbnail personalizada salva!');
+                    this.loadAlbumArt();
+                }
+            }
+
+            updateUserData(customizations) {
+                const userData = window.authSystem.getUserData();
+                userData.musicCustomizations = customizations;
+                window.authSystem.saveUserData(userData);
+            }
+
+            setSongPath(path) {
+                this.currentSongPath = path;
+                this.loadAlbumArt();
+                this.loadArtistInfo();
+            }
+
+            loadAlbumArt() {
+                const customizations = window.authSystem.getUserData().musicCustomizations || {};
+                const albumArt = document.getElementById('albumArt');
+                
+                if (customizations[this.currentSongPath]?.thumbnail) {
+                    const thumbnail = customizations[this.currentSongPath].thumbnail;
+                    const img = albumArt.querySelector('img') || document.createElement('img');
+                    img.src = thumbnail;
+                    if (!albumArt.querySelector('img')) {
+                        albumArt.innerHTML = '';
+                        albumArt.appendChild(img);
+                    }
+                    const overlay = albumArt.querySelector('.album-art-upload-overlay');
+                    if (!overlay) {
+                        const div = document.createElement('div');
+                        div.className = 'album-art-upload-overlay';
+                        div.innerHTML = `
+                            <div class="album-upload-text">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Clique para atualizar thumbnail</span>
+                            </div>
+                        `;
+                        albumArt.appendChild(div);
+                    }
+                } else {
+                    albumArt.innerHTML = '<i class="fas fa-music"></i>';
+                    const overlay = document.createElement('div');
+                    overlay.className = 'album-art-upload-overlay';
+                    overlay.innerHTML = `
+                        <div class="album-upload-text">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <span>Upload Image</span>
+                        </div>
+                    `;
+                    albumArt.appendChild(overlay);
+                }
+            }
+
+            loadArtistInfo() {
+                const customizations = window.authSystem.getUserData().musicCustomizations || {};
+                const songArtistEl = document.getElementById('songArtist');
+                
+                if (customizations[this.currentSongPath]?.artistName) {
+                    songArtistEl.textContent = customizations[this.currentSongPath].artistName;
+                } else {
+                    songArtistEl.textContent = 'Artista Desconhecido';
+                }
+            }
+
+            getCustomArtist(path) {
+                const customizations = window.authSystem.getUserData().musicCustomizations || {};
+                return customizations[path]?.artistName || 'Artista Desconhecido';
+            }
+        }
+
+        window.musicCustomizer = new MusicCustomizer();
+    </script>
+
+    <!-- ========== RESTO DO CÓDIGO ========== -->
+    <script>
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const body = document.body;
+
+        fullscreenBtn.addEventListener('click', () => {
+            const element = document.documentElement;
+            
+            if (!document.fullscreenElement) {
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.mozRequestFullScreen) {
+                    element.mozRequestFullScreen();
+                } else if (element.webkitRequestFullscreen) {
+                    element.webkitRequestFullscreen();
+                } else if (element.msRequestFullscreen) {
+                    element.msRequestFullscreen();
+                }
+                
+                body.classList.add('fullscreen');
+                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                
+                body.classList.remove('fullscreen');
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            }
+        });
+
+        const toggleBtn = document.getElementById('toggleSidebarBtn');
+        const sidebar = document.getElementById('sidebar');
+        const userInfoHeader = document.getElementById('userInfoHeader');
+
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('hidden');
+            userInfoHeader.classList.toggle('active');
+            
+            const isHidden = sidebar.classList.contains('hidden');
+            localStorage.setItem('myvibeSidebarHidden', isHidden);
+
+            if (isHidden) {
+                toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            } else {
+                toggleBtn.innerHTML = '<i class="fas fa-bars"></i>';
+            }
+        });
+
+        const floatingCartBtn = document.getElementById('floatingCartBtn');
+        const subscriptionsModal = document.getElementById('subscriptionsModal');
+        const closeSubscriptionsBtn = document.getElementById('closeSubscriptionsBtn');
+
+        floatingCartBtn.addEventListener('click', () => {
+            subscriptionsModal.classList.add('active');
+        });
+
+        closeSubscriptionsBtn.addEventListener('click', () => {
+            subscriptionsModal.classList.remove('active');
+        });
+
+        subscriptionsModal.addEventListener('click', (e) => {
+            if (e.target === subscriptionsModal) {
+                subscriptionsModal.classList.remove('active');
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && subscriptionsModal.classList.contains('active')) {
+                subscriptionsModal.classList.remove('active');
+            }
+        });
+
+        function selectPlan(planName) {
+            window.authSystem.purchaseSubscription(planName);
+            document.getElementById('subscriptionsModal').classList.remove('active');
+        }
+
+        const floatingVideoBtn = document.getElementById('floatingVideoBtn');
+        const videoModal = document.getElementById('videoModal');
+        const closeVideoModal = document.getElementById('closeVideoModal');
+
+        floatingVideoBtn.addEventListener('click', () => {
+            videoModal.classList.toggle('active');
+        });
+
+        closeVideoModal.addEventListener('click', () => {
+            videoModal.classList.remove('active');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!videoModal.contains(e.target) && e.target !== floatingVideoBtn) {
+                videoModal.classList.remove('active');
+            }
+        });
+
+        // ========== ZOOM/ESCALA DO PLAYER ==========
+        const floatingZoomBtn = document.getElementById('floatingZoomBtn');
+        const zoomModal = document.getElementById('zoomModal');
+        const closeZoomModal = document.getElementById('closeZoomModal');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        const player = document.querySelector('.player');
+        const albumArt = document.getElementById('albumArt');
+        const songTitle = document.getElementById('songTitle');
+        const songArtist = document.getElementById('songArtist');
+        const controls = document.querySelector('.controls');
+        const progressContainer = document.querySelector('.progress-container');
+
+        let currentZoom = localStorage.getItem('myvibePlayerZoom') || 100;
+        applyZoom(currentZoom);
+        zoomSlider.value = currentZoom;
+        zoomValue.textContent = currentZoom + '%';
+
+        floatingZoomBtn.addEventListener('click', () => {
+            zoomModal.classList.toggle('active');
+        });
+
+        closeZoomModal.addEventListener('click', () => {
+            zoomModal.classList.remove('active');
+        });
+
+        zoomSlider.addEventListener('input', (e) => {
+            const zoomLevel = e.target.value;
+            setZoom(zoomLevel);
+        });
+
+        function applyZoom(zoomLevel) {
+            const scale = zoomLevel / 100;
+
+            if (albumArt) {
+                albumArt.style.width = (240 * scale) + 'px';
+                albumArt.style.height = (240 * scale) + 'px';
+                albumArt.style.fontSize = (80 * scale) + 'px';
+                albumArt.style.borderRadius = (16 * scale) + 'px';
+                albumArt.style.marginBottom = (32 * scale) + 'px';
+                albumArt.style.boxShadow = `0 0 ${40 * scale}px rgba(124, 58, 237, ${0.3 * scale})`;
+            }
+
+            if (songTitle) {
+                songTitle.style.fontSize = (24 * scale) + 'px';
+            }
+
+            if (songArtist) {
+                songArtist.style.fontSize = (14 * scale) + 'px';
+            }
+
+            if (controls) {
+                controls.style.gap = (24 * scale) + 'px';
+                const controlBtns = controls.querySelectorAll('.control-btn:not(.play-btn)');
+                controlBtns.forEach(btn => {
+                    btn.style.width = (48 * scale) + 'px';
+                    btn.style.height = (48 * scale) + 'px';
+                    btn.style.fontSize = (18 * scale) + 'px';
+                });
+
+                const playBtn = controls.querySelector('.control-btn.play-btn');
+                if (playBtn) {
+                    playBtn.style.width = (64 * scale) + 'px';
+                    playBtn.style.height = (64 * scale) + 'px';
+                    playBtn.style.fontSize = (24 * scale) + 'px';
+                }
+            }
+
+            if (progressContainer) {
+                const timeDisplay = progressContainer.querySelector('.time-display');
+                if (timeDisplay) {
+                    timeDisplay.style.fontSize = (12 * scale) + 'px';
+                }
+            }
+        }
+
+        function setZoom(zoomLevel) {
+            currentZoom = zoomLevel;
+            zoomSlider.value = zoomLevel;
+            zoomValue.textContent = zoomLevel + '%';
+            applyZoom(zoomLevel);
+            localStorage.setItem('myvibePlayerZoom', zoomLevel);
+        }
+
+        function resetZoom() {
+            setZoom(100);
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!zoomModal.contains(e.target) && e.target !== floatingZoomBtn) {
+                zoomModal.classList.remove('active');
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && zoomModal.classList.contains('active')) {
+                zoomModal.classList.remove('active');
+            }
+        });
+
+        // ========== SETTINGS MODAL MELHORADO ==========
+        class SettingsPanel {
+            constructor() {
+                this.overlay = document.getElementById('settingsOverlay');
+                this.closeBtn = document.getElementById('settingsCloseBtn');
+                this.sidebarItems = document.querySelectorAll('.settings-sidebar .settings-item');
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                this.closeBtn.addEventListener('click', () => this.closeSettings());
+                
+                this.sidebarItems.forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        this.selectSection(e.target.closest('.settings-item'));
+                    });
+                });
+
+                this.overlay.addEventListener('click', (e) => {
+                    if (e.target === this.overlay) {
+                        this.closeSettings();
+                    }
+                });
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.overlay.classList.contains('active')) {
+                        this.closeSettings();
+                    }
+                });
+            }
+
+            openSettings() {
+                this.overlay.classList.add('active');
+                this.updateUserInfo();
+            }
+
+            closeSettings() {
+                this.overlay.classList.remove('active');
+            }
+
+            selectSection(item) {
+                // Remove active de todos os itens
+                this.sidebarItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+
+                const section = item.dataset.section;
+                const title = item.textContent.trim().split('\n').filter(t => t.trim())[1] || item.textContent.trim();
+                
+                document.getElementById('settingsTitle').textContent = title;
+
+                // Esconde todos os conteúdos
+                document.querySelectorAll('.settings-tab-content').forEach(content => {
+                    content.classList.remove('active');
+                    content.style.display = 'none';
+                });
+
+                // Mostra o conteúdo selecionado
+                const targetContent = document.querySelector(`.${section}-content`);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                    targetContent.style.display = 'block';
+                }
+            }
+
+            updateUserInfo() {
+                if (!window.authSystem || !window.authSystem.currentUser) return;
+
+                const userData = window.authSystem.getUserData();
+                const firstLetter = window.authSystem.currentUser.charAt(0).toUpperCase();
+
+                document.getElementById('settingsAvatar').textContent = firstLetter;
+                document.getElementById('settingsUsername').textContent = window.authSystem.currentUser;
+                document.getElementById('settingsUserID').textContent = `ID: ${window.authSystem.currentUser}`;
+
+                document.getElementById('displayNameValue').textContent = window.authSystem.currentUser;
+                document.getElementById('userNameValue').textContent = window.authSystem.currentUser;
+                document.getElementById('emailValue').textContent = userData.email || 'Email não configurado';
+                document.getElementById('countryValue').textContent = userData.country || 'Não definido';
+
+                const subscriptionInfo = window.authSystem.getSubscriptionInfo();
+                document.getElementById('currentPlanValue').textContent = subscriptionInfo.plan;
+
+                if (subscriptionInfo.expiryDate) {
+                    const expiryDate = new Date(subscriptionInfo.expiryDate);
+                    document.getElementById('renewalDateValue').textContent = expiryDate.toLocaleDateString('pt-BR');
+                }
+            }
+        }
+
+        window.settingsPanel = new SettingsPanel();
+
+        // ✅ CONECTAR O BOTÃO DE SETTINGS FLUTUANTE À NOVA INTERFACE
+        const floatingSettingsBtn = document.getElementById('floatingSettingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettingsModal = document.getElementById('closeSettingsModal');
+        const particlesToggle = document.getElementById('particlesToggle');
+
+        let particlesEnabled = JSON.parse(localStorage.getItem('myvibeParticlesEnabled')) !== false;
+        if (particlesEnabled) {
+            particlesToggle.classList.add('active');
+        }
+
+        floatingSettingsBtn.addEventListener('click', () => {
+            window.settingsPanel.openSettings();
+        });
+
+        closeSettingsModal.addEventListener('click', () => {
+            settingsModal.classList.remove('active');
+        });
+
+        particlesToggle.addEventListener('click', () => {
+            particlesEnabled = !particlesEnabled;
+            particlesToggle.classList.toggle('active');
+            localStorage.setItem('myvibeParticlesEnabled', JSON.stringify(particlesEnabled));
+            
+            window.dispatchEvent(new CustomEvent('toggleParticles', { detail: { enabled: particlesEnabled } }));
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!settingsModal.contains(e.target) && e.target !== floatingSettingsBtn) {
+                settingsModal.classList.remove('active');
+            }
+        });
+
+        setInterval(() => {
+            if (window.myvibePlayer && window.myvibePlayer.playlists && window.subscriptionBenefits) {
+                const currentCount = Object.keys(window.myvibePlayer.playlists).length;
+                if (currentCount > 0) {
+                    playlistsLoaded = true;
+                }
+            }
+        }, 500);
+
+        document.addEventListener('playerInitialized', () => {
+            playlistsLoaded = true;
+        });
+
+        window.musicCustomizer = window.musicCustomizer || new MusicCustomizer();
+
+        // ========== FUNÇÕES DE AÇÃO DAS CONFIGURAÇÕES ==========
+        function editDisplayName() {
+            window.notificationSystem.info('Abrindo editor de nome exibido...');
+        }
+
+        function editUsername() {
+            window.notificationSystem.info('Abrindo editor de nome de usuário...');
+        }
+
+        function editEmail() {
+            window.notificationSystem.info('Abrindo editor de email...');
+        }
+
+        function editCountry() {
+            window.notificationSystem.info('Abrindo editor de país...');
+        }
+
+        function changePassword() {
+            window.notificationSystem.info('Abrindo editor de senha...');
+        }
+
+        function enable2FA() {
+            window.notificationSystem.info('Ativando autenticação de dois fatores...');
+        }
+
+        function manageSessions() {
+            window.notificationSystem.info('Gerenciando sessões ativas...');
+        }
+
+        function deleteAccount() {
+            if (confirm('Tem certeza? Esta ação é irreversível!')) {
+                window.notificationSystem.warning('Exclusão de conta solicitada...');
+            }
+        }
+
+        function connectService(service) {
+            window.notificationSystem.info(`Conectando ${service}...`);
+        }
+
+        function upgradePlan() {
+            window.notificationSystem.info('Abrindo modal de assinaturas...');
+            document.getElementById('subscriptionsModal').classList.add('active');
+            window.settingsPanel.closeSettings();
+        }
+
+        function manageBilling() {
+            window.notificationSystem.info('Gerenciando pagamentos...');
+        }
+    </script>
+
+    <script src="notification-translator.js"></script>
+    <script src="translations.js"></script>
+    <script src="app.js"></script>
+    <script src="particles.js"></script>
+</body>
+</html>
